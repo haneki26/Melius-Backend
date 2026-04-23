@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || 'sk-your-actual-key-here'
+  apiKey: process.env.OPENAI_API_KEY || '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      '
 });
 
 const getModePrompt = (mode) => {
