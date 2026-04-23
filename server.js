@@ -9,7 +9,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ 
+  apiKey: process.env.OPENAI_API_KEY || 'sk-your-actual-key-here'
+});
 
 const getModePrompt = (mode) => {
   switch (mode) {
@@ -144,10 +146,9 @@ IMPORTANT RULES:
         return res.json(parsed);
       }
     } catch (e) {
-      // fall through to plain reply
+      // fall through
     }
 
-    // Fallback
     res.json({ type: 'chat', reply: content });
 
   } catch (error) {
@@ -159,7 +160,6 @@ IMPORTANT RULES:
   }
 });
 
-// Fallback form endpoint
 app.post('/api/generate-plan', async (req, res) => {
   try {
     const { sleepHours, energyLevel, mainGoal, availableHours, userContext } = req.body;
@@ -181,5 +181,5 @@ app.post('/api/generate-plan', async (req, res) => {
   }
 });
 
-const PORT = 3001;
-app.listen(PORT, () => console.log(`Melius backend running on http://localhost:${PORT}`));
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => console.log(`Melius backend running on port ${PORT}`));
