@@ -9,6 +9,16 @@ const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+  
+});
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || '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'
 });
