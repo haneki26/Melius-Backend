@@ -6,11 +6,11 @@ import OpenAI from 'openai';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || '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      '
+  apiKey: process.env.OPENAI_API_KEY || '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'
 });
 
 const getModePrompt = (mode) => {
