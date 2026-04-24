@@ -16,7 +16,7 @@ app.use((req, res, next) => {
 });
 
 app.use(cors({ origin: '*' }));
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -34,6 +34,8 @@ const getModePrompt = (mode) => {
       return 'You are in RECOVERY mode. Collect what they are recovering from. Generate a full recovery protocol with nutrition, active recovery, and sleep optimization.';
     case 'Nutrition plan':
       return 'You are in NUTRITION PLAN mode. Collect weight, height, age, goal, and activity level. Calculate exact TDEE using Mifflin-St Jeor and give calorie target and macros in grams.';
+    case 'Calorie analyzer':
+      return 'You are in CALORIE ANALYZER mode. The user has sent a food image. Analyze it and estimate calories and macros. Always include a disclaimer that estimates are approximate.';
     default:
       return '';
   }
@@ -45,7 +47,7 @@ app.get('/', (req, res) => {
 
 app.post('/api/chat-plan', async (req, res) => {
   try {
-    const { message, userContext, history, mode } = req.body;
+    const { message, userContext, history, mode, image } = req.body;
 
     const contextSection = userContext?.name
       ? `USER PROFILE:
@@ -68,13 +70,20 @@ YOUR PERSONALITY:
 - Concise but thorough
 - Human and natural
 
-YOU CAN DO ANYTHING: answer questions, give recommendations, build teams or lists, write emails, give advice, make plans, explain topics, have conversations.
+YOU CAN DO ANYTHING: answer questions, give recommendations, build teams or lists, write emails, give advice, make plans, explain topics, analyze images, estimate calories from food photos, have conversations.
 
 FORMATTING RULES — VERY IMPORTANT:
 - NEVER use markdown formatting in your replies — no **bold**, no *italic*, no # headers, no bullet points with *, no numbered lists with periods like "1."
 - Write in plain natural language only
 - For lists use natural sentences like "First... then... and finally..." or just separate with line breaks
-- Keep replies conversational and clean — like a text message from a smart friend, not a document
+- Keep replies conversational and clean
+
+IMAGE ANALYSIS RULES:
+- When analyzing food images, identify each food item visible
+- Estimate calories for each item and give a total
+- Give approximate macros (protein, carbs, fat in grams)
+- Always add: "Note: these are estimates and may vary based on portion size and preparation method"
+- Be helpful and specific, not vague
 
 RESPONSE TYPE RULES — always respond with valid JSON only, no text outside the JSON:
 
@@ -83,7 +92,7 @@ For email/document drafts: {"type":"draft","reply":"Here is the draft:","draft":
 For day plans or schedules: {"type":"plan","reply":"Here is your plan.","plan":{"summary":"summary","recommendations":[{"icon":"emoji","tip":"tip in plain text"}],"schedule":[{"time":"HH:MM","icon":"emoji","title":"task","desc":"description in plain text"}]}}
 For follow-up questions: {"type":"question","reply":"your question in plain text"}
 
-Use type chat for recommendations and info. Use type draft for writing tasks. Use type plan only for schedules. Always return valid JSON.`;
+Use type chat for image analysis, recommendations and info. Use type draft for writing tasks. Use type plan only for schedules. Always return valid JSON.`;
 
     const chatHistory = (history || [])
       .filter(m => m.role === 'user' || m.role === 'melius')
@@ -92,12 +101,32 @@ Use type chat for recommendations and info. Use type draft for writing tasks. Us
         content: m.text,
       }));
 
+    // Build messages array — add image if provided
+    let userContent;
+    if (image && image.base64) {
+      userContent = [
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${image.type};base64,${image.base64}`,
+            detail: 'high',
+          },
+        },
+        {
+          type: 'text',
+          text: message || 'Please analyze this image',
+        },
+      ];
+    } else {
+      userContent = message;
+    }
+
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: [
         { role: 'system', content: systemPrompt },
         ...chatHistory,
-        { role: 'user', content: message },
+        { role: 'user', content: userContent },
       ],
       temperature: 0.85,
       max_tokens: 2000,
