@@ -16,107 +16,104 @@ app.use((req, res, next) => {
 });
 
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '20mb' }));
+app.use(express.json({ limit: '25mb' }));
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const getModePrompt = (mode) => {
   switch (mode) {
     case 'Training plan':
-      return 'You are in TRAINING PLAN mode. Collect weight, goal (lose fat/build muscle/performance), experience level, equipment available, and any injuries. Then generate a full workout and calorie/macro targets using Mifflin-St Jeor formula. Include exact exercises with sets, reps, and suggested weights based on experience level.';
+      return 'You are in TRAINING PLAN mode. Collect weight, goal, experience level, equipment, injuries. Generate a full workout with exact exercises, sets, reps, and suggested weights using Mifflin-St Jeor for calories.';
     case 'Study session':
-      return 'You are in STUDY SESSION mode. Collect subject, deadline, available hours, and confidence level. Generate a Pomodoro-based study plan with spaced repetition techniques.';
+      return 'You are in STUDY SESSION mode. Collect subject, deadline, available hours, confidence level. Generate a Pomodoro-based study plan with spaced repetition.';
     case 'Work day':
-      return 'You are in WORK DAY mode. Collect main tasks, meetings, deadlines, and work hours. Generate a deep work schedule that maximizes productivity.';
+      return 'You are in WORK DAY mode. Collect main tasks, meetings, deadlines, work hours. Generate a deep work schedule.';
     case 'Recovery day':
-      return 'You are in RECOVERY mode. Collect what they are recovering from. Generate a full recovery protocol with nutrition, active recovery, and sleep optimization.';
+      return 'You are in RECOVERY mode. Generate a full recovery protocol with nutrition, active recovery, and sleep optimization.';
     case 'Nutrition plan':
-      return 'You are in NUTRITION PLAN mode. Collect weight, height, age, goal, and activity level. Calculate exact TDEE using Mifflin-St Jeor and give calorie target and macros in grams.';
+      return 'You are in NUTRITION PLAN mode. Calculate TDEE using Mifflin-St Jeor. Give exact calorie target and macros in grams.';
     case 'Calorie analyzer':
-      return 'You are in CALORIE ANALYZER mode. The user has sent a food image. Analyze it and estimate calories and macros. Always include a disclaimer that estimates are approximate.';
+      return 'You are in CALORIE ANALYZER mode. Analyze food and estimate calories and macros per item. Return as calorie type with calorieEntry object.';
     default:
       return '';
   }
 };
 
-app.get('/', (req, res) => {
-  res.json({ status: 'Melius backend running' });
-});
+app.get('/', (req, res) => res.json({ status: 'Melius backend running' }));
 
 app.post('/api/chat-plan', async (req, res) => {
   try {
-    const { message, userContext, history, mode, image } = req.body;
+    const { message, userContext, history, mode, image, file, calorieContext } = req.body;
 
-    const contextSection = userContext?.name
-      ? `USER PROFILE:
+    const contextSection = userContext?.name ? `USER PROFILE:
 - Name: ${userContext.name}
 - Age: ${userContext.age || 'not set'}
 - Lifestyle: ${userContext.lifestyle || 'not set'}
 - Weekly goals: ${userContext.weeklyGoals || 'not set'}
-- Notes: ${userContext.notes || 'none'}`
-      : '';
+- Notes: ${userContext.notes || 'none'}` : '';
 
     const modeInstructions = getModePrompt(mode);
+    const calorieSection = calorieContext ? `\nCALORIE CONTEXT: ${calorieContext}` : '';
 
     const systemPrompt = `You are Melius, a highly intelligent personal AI agent. You are like a brilliant friend who can help with anything.
 
 ${contextSection}
 ${modeInstructions}
+${calorieSection}
 
 YOUR PERSONALITY:
 - Calm, smart, and direct
 - Concise but thorough
 - Human and natural
 
-YOU CAN DO ANYTHING: answer questions, give recommendations, build teams or lists, write emails, give advice, make plans, explain topics, analyze images, estimate calories from food photos, have conversations.
+YOU CAN DO ANYTHING: answer questions, give recommendations, write emails, give advice, make plans, explain topics, analyze images and documents, estimate calories, have conversations.
 
 FORMATTING RULES — VERY IMPORTANT:
-- NEVER use markdown formatting in your replies — no **bold**, no *italic*, no # headers, no bullet points with *, no numbered lists with periods like "1."
+- NEVER use markdown formatting — no **bold**, no *italic*, no # headers, no bullet points with *, no numbered lists
 - Write in plain natural language only
-- For lists use natural sentences like "First... then... and finally..." or just separate with line breaks
 - Keep replies conversational and clean
 
-IMAGE ANALYSIS RULES:
-- When analyzing food images, identify each food item visible
-- Estimate calories for each item and give a total
-- Give approximate macros (protein, carbs, fat in grams)
-- Always add: "Note: these are estimates and may vary based on portion size and preparation method"
-- Be helpful and specific, not vague
+CALORIE DETECTION — VERY IMPORTANT:
+- If the user mentions ANY food, meal, drink, snack, eating, calories, macros, or nutrition — you MUST respond with type calorie
+- This includes casual mentions like "I had pizza" or "what about an apple" or "I ate breakfast"
+- ALWAYS include a calorieEntry object with name, calories, protein, carbs, fat, icon
+- Do NOT respond with type chat for food questions — always use type calorie
+- Estimates are fine — always add disclaimer
+- Example: {"type":"calorie","reply":"A medium apple has around 95 calories. Note these are estimates.","calorieEntry":{"name":"Medium apple","calories":95,"protein":0,"carbs":25,"fat":0,"icon":"🍎"}}
+AFTER PLAN BEHAVIOUR:
+- After generating a plan, stay in chat mode
+- User can ask to refine the plan — make it harder, adjust timing, change focus
+- Respond conversationally and update recommendations naturally
 
-RESPONSE TYPE RULES — always respond with valid JSON only, no text outside the JSON:
+RESPONSE TYPES — always respond with valid JSON only:
+{"type":"chat","reply":"plain text"}
+{"type":"draft","reply":"Here is the draft:","draft":{"title":"what it is","content":"full content"}}
+{"type":"plan","reply":"Here is your plan.","plan":{"summary":"...","recommendations":[{"icon":"emoji","tip":"..."}],"schedule":[{"time":"HH:MM","icon":"emoji","title":"...","desc":"..."}]}}
+{"type":"question","reply":"your question"}
+{"type":"calorie","reply":"your analysis in plain text","calorieEntry":{"name":"food name","calories":0,"protein":0,"carbs":0,"fat":0,"icon":"emoji"}}
 
-For general chat or info: {"type":"chat","reply":"your response in plain text"}
-For email/document drafts: {"type":"draft","reply":"Here is the draft:","draft":{"title":"what it is","content":"full content"}}
-For day plans or schedules: {"type":"plan","reply":"Here is your plan.","plan":{"summary":"summary","recommendations":[{"icon":"emoji","tip":"tip in plain text"}],"schedule":[{"time":"HH:MM","icon":"emoji","title":"task","desc":"description in plain text"}]}}
-For follow-up questions: {"type":"question","reply":"your question in plain text"}
-
-Use type chat for image analysis, recommendations and info. Use type draft for writing tasks. Use type plan only for schedules. Always return valid JSON.`;
+Use calorie type whenever food or calories are mentioned. Use plan only for full schedules. Always return valid JSON.`;
 
     const chatHistory = (history || [])
       .filter(m => m.role === 'user' || m.role === 'melius')
-      .map(m => ({
-        role: m.role === 'melius' ? 'assistant' : 'user',
-        content: m.text,
-      }));
+      .slice(-10)
+      .map(m => ({ role: m.role === 'melius' ? 'assistant' : 'user', content: m.text || '' }));
 
-    // Build messages array — add image if provided
+    // Build user content
     let userContent;
-    if (image && image.base64) {
+    if (image?.base64) {
       userContent = [
-        {
-          type: 'image_url',
-          image_url: {
-            url: `data:${image.type};base64,${image.base64}`,
-            detail: 'high',
-          },
-        },
-        {
-          type: 'text',
-          text: message || 'Please analyze this image',
-        },
+        { type: 'image_url', image_url: { url: `data:${image.type};base64,${image.base64}`, detail: 'high' } },
+        { type: 'text', text: message || 'Please analyze this image' },
       ];
+    } else if (file) {
+      let fileText = '';
+      if (file.type === 'text' && file.content) {
+        fileText = `\n\nFILE CONTENTS (${file.name}):\n${file.content.slice(0, 6000)}`;
+      } else if (file.type === 'pdf') {
+        fileText = `\n\n[PDF file attached: ${file.name}. Summarize or analyze based on context.]`;
+      }
+      userContent = (message || 'Please analyze this file') + fileText;
     } else {
       userContent = message;
     }
@@ -140,25 +137,20 @@ Use type chat for image analysis, recommendations and info. Use type draft for w
         const parsed = JSON.parse(jsonMatch[0]);
         return res.json(parsed);
       }
-    } catch (e) {
-      // fall through
-    }
+    } catch (e) {}
 
     res.json({ type: 'chat', reply: content });
 
   } catch (error) {
     console.error('Chat error:', error.message);
-    res.status(500).json({
-      type: 'chat',
-      reply: 'Something went wrong. Please try again.',
-    });
+    res.status(500).json({ type: 'chat', reply: 'Something went wrong. Please try again.' });
   }
 });
 
 app.post('/api/generate-plan', async (req, res) => {
   try {
-    const { sleepHours, energyLevel, mainGoal, availableHours, userContext } = req.body;
-    const prompt = `Generate an optimized daily plan. Sleep: ${sleepHours}hrs, Energy: ${energyLevel}/10, Goal: ${mainGoal}, Available: ${availableHours}hrs. Return JSON: { "summary": "...", "recommendations": [{"icon":"emoji","tip":"..."}], "schedule": [{"time":"HH:MM","icon":"emoji","title":"...","desc":"..."}] }`;
+    const { sleepHours, energyLevel, mainGoal, availableHours } = req.body;
+    const prompt = `Generate an optimized daily plan. Sleep: ${sleepHours}hrs, Energy: ${energyLevel}/10, Goal: ${mainGoal}, Available: ${availableHours}hrs. Return JSON: {"summary":"...","recommendations":[{"icon":"emoji","tip":"..."}],"schedule":[{"time":"HH:MM","icon":"emoji","title":"...","desc":"..."}]}`;
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
