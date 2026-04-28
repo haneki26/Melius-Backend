@@ -150,6 +150,7 @@ FORMATTING RULES:
 - Keep replies conversational and clean
 - When sharing URLs write them as plain text like: https://example.com
 
+
 CALORIE DETECTION — MANDATORY:
 - If the user mentions ANY food, meal, drink, snack, eating, calories, macros — respond with type calorie
 - ALWAYS include calorieEntry with name, calories, protein, carbs, fat, icon
@@ -161,6 +162,8 @@ RESPONSE TYPES — always valid JSON only, nothing outside:
 {"type":"plan","reply":"Here is your plan.","plan":{"summary":"...","recommendations":[{"icon":"emoji","tip":"..."}],"schedule":[{"time":"HH:MM","icon":"emoji","title":"...","desc":"..."}]}}
 {"type":"question","reply":"clarifying question"}
 {"type":"calorie","reply":"analysis in plain text","calorieEntry":{"name":"food name","calories":0,"protein":0,"carbs":0,"fat":0,"icon":"emoji"}}
+{"type":"presentation","reply":"Generating your presentation...","file":{"title":"Title","subtitle":"Subtitle","slides":[{"title":"Slide title","points":["Point 1","Point 2","Point 3"]}]}}
+{"type":"pdf","reply":"Generating your document...","file":{"title":"Title","subtitle":"Subtitle","sections":[{"title":"Section","points":["Point 1","Point 2"]}]}}
 
 Use presentation type when user asks for a presentation, slides, deck, or PowerPoint.
 Use pdf type when user asks for a PDF, document, or report to download.
