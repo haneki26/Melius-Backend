@@ -48,16 +48,28 @@ const webSearch = async (query) => {
 
 // ── DETECT IF MESSAGE NEEDS WEB SEARCH ──
 const needsWebSearch = (message) => {
-  const searchTriggers = [
-    'search', 'find', 'look up', 'what is', 'who is', 'where is', 'when is',
-    'how much', 'how many', 'price', 'cost', 'latest', 'recent', 'news',
-    'best', 'top', 'recommend', 'near me', 'current', 'today', 'weather',
-    'stock', 'rate', 'register', 'apply', 'website', 'address', 'phone',
-    'contact', 'hours', 'open', 'in oslo', 'in london', 'in new york',
-    'in norway', 'in the uk', 'in the us', 'how do i', 'where can i',
+  const noSearchNeeded = [
+    'plan my day', 'training plan', 'study session', 'work day',
+    'recovery day', 'help me plan', 'make a plan', 'create a plan',
+    'i ate', 'i had', 'calories in', 'how many calories',
   ];
   const lower = message.toLowerCase();
+  // Skip search for planning and food requests
+  if (noSearchNeeded.some(t => lower.includes(t))) return false;
+  // Search for almost everything else that sounds like a question or lookup
+  const searchTriggers = [
+    'find', 'search', 'look up', 'where', 'what is', 'who is', 'when',
+    'how much', 'how many', 'price', 'cost', 'buy', 'purchase', 'link',
+    'website', 'latest', 'recent', 'news', 'best', 'top', 'recommend',
+    'near', 'current', 'today', 'weather', 'rate', 'register', 'apply',
+    'address', 'phone', 'contact', 'hours', 'open', 'available', 'where can',
+    'how do i', 'can you find', 'get me', 'show me', 'tell me about',
+    'what are', 'which', 'review', 'compare', 'difference between',
+    'supplement', 'product', 'brand', 'store', 'shop', 'gym', 'restaurant',
+    'hotel', 'flight', 'course', 'app', 'tool', 'software', 'service',
+  ];
   return searchTriggers.some(t => lower.includes(t));
+};
 };
 
 const getModePrompt = (mode) => {
