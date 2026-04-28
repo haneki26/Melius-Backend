@@ -46,6 +46,20 @@ const webSearch = async (query) => {
   }
 };
 
+// ── DETECT IF MESSAGE NEEDS WEB SEARCH ──
+const needsWebSearch = (message) => {
+  const searchTriggers = [
+    'search', 'find', 'look up', 'what is', 'who is', 'where is', 'when is',
+    'how much', 'how many', 'price', 'cost', 'latest', 'recent', 'news',
+    'best', 'top', 'recommend', 'near me', 'current', 'today', 'weather',
+    'stock', 'rate', 'register', 'apply', 'website', 'address', 'phone',
+    'contact', 'hours', 'open', 'in oslo', 'in london', 'in new york',
+    'in norway', 'in the uk', 'in the us', 'how do i', 'where can i',
+  ];
+  const lower = message.toLowerCase();
+  return searchTriggers.some(t => lower.includes(t));
+};
+
 const getModePrompt = (mode) => {
   switch (mode) {
     case 'Training plan':
@@ -63,19 +77,6 @@ const getModePrompt = (mode) => {
     default:
       return '';
   }
-};
-
-// Detect if message needs web search
-const needsWebSearch = (message) => {
-  const searchTriggers = [
-    'search', 'find', 'look up', 'what is', 'who is', 'where is', 'when is',
-    'how much', 'how many', 'price', 'cost', 'latest', 'recent', 'news',
-    'best', 'top', 'recommend', 'near me', 'in oslo', 'in london', 'in new york',
-    'current', 'today', 'weather', 'stock', 'rate', 'register', 'apply',
-    'website', 'address', 'phone', 'contact', 'hours', 'open',
-  ];
-  const lower = message.toLowerCase();
-  return searchTriggers.some(t => lower.includes(t));
 };
 
 app.get('/', (req, res) => res.json({ status: 'Melius backend running' }));
@@ -100,7 +101,8 @@ app.post('/api/chat-plan', async (req, res) => {
       const results = await webSearch(message);
       if (results.length > 0) {
         searchContext = `\nWEB SEARCH RESULTS for "${message}":\n` +
-          results.map((r, i) => `${i + 1}. ${r.title}\n   ${r.description}\n   Source: ${r.url}`).join('\n\n');
+          results.map((r, i) => `${i + 1}. ${r.title}\n   ${r.description}\n   URL: ${r.url}`).join('\n\n');
+        searchContext += `\n\nIMPORTANT: Use these results to give accurate current information. Include relevant URLs naturally at the end of your reply so users can learn more.`;
       }
     }
 
@@ -113,7 +115,7 @@ ${searchContext}
 
 YOUR PERSONALITY:
 - Calm, smart, and direct
-- Concise but thorough  
+- Concise but thorough
 - Human and natural — like a trusted advisor
 
 YOU ARE A REAL AGENT — not just a planner:
@@ -121,13 +123,14 @@ YOU ARE A REAL AGENT — not just a planner:
 - Find information, give recommendations, compare options
 - Write emails, documents, plans, messages
 - Answer any question with depth and accuracy
-- When web search results are provided above, use them to give current accurate information and cite sources naturally
+- When web search results are provided above, use them to give current accurate information and include source URLs
 - Plan sessions for ANY goal — business planning, creative projects, research, learning — not just daily schedules
 
 FORMATTING RULES:
 - NEVER use markdown — no **bold**, no *italic*, no # headers, no bullet points with *, no numbered lists
 - Write in plain natural language only
 - Keep replies conversational and clean
+- When sharing URLs write them as plain text like: https://example.com
 
 CALORIE DETECTION — MANDATORY:
 - If the user mentions ANY food, meal, drink, snack, eating, calories, macros — respond with type calorie
