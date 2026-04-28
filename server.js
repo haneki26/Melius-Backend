@@ -70,7 +70,7 @@ const needsWebSearch = (message) => {
   ];
   return searchTriggers.some(t => lower.includes(t));
 };
-};
+;
 
 const getModePrompt = (mode) => {
   switch (mode) {
