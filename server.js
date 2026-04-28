@@ -20,6 +20,32 @@ app.use(express.json({ limit: '25mb' }));
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// ── WEB SEARCH via Brave ──
+const webSearch = async (query) => {
+  try {
+    const response = await fetch(
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5&text_decorations=false`,
+      {
+        headers: {
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip',
+          'X-Subscription-Token': process.env.BRAVE_API_KEY,
+        },
+      }
+    );
+    const data = await response.json();
+    const results = data?.web?.results || [];
+    return results.map(r => ({
+      title: r.title,
+      url: r.url,
+      description: r.description,
+    }));
+  } catch (err) {
+    console.error('Search error:', err.message);
+    return [];
+  }
+};
+
 const getModePrompt = (mode) => {
   switch (mode) {
     case 'Training plan':
@@ -39,6 +65,19 @@ const getModePrompt = (mode) => {
   }
 };
 
+// Detect if message needs web search
+const needsWebSearch = (message) => {
+  const searchTriggers = [
+    'search', 'find', 'look up', 'what is', 'who is', 'where is', 'when is',
+    'how much', 'how many', 'price', 'cost', 'latest', 'recent', 'news',
+    'best', 'top', 'recommend', 'near me', 'in oslo', 'in london', 'in new york',
+    'current', 'today', 'weather', 'stock', 'rate', 'register', 'apply',
+    'website', 'address', 'phone', 'contact', 'hours', 'open',
+  ];
+  const lower = message.toLowerCase();
+  return searchTriggers.some(t => lower.includes(t));
+};
+
 app.get('/', (req, res) => res.json({ status: 'Melius backend running' }));
 
 app.post('/api/chat-plan', async (req, res) => {
@@ -55,51 +94,63 @@ app.post('/api/chat-plan', async (req, res) => {
     const modeInstructions = getModePrompt(mode);
     const calorieSection = calorieContext ? `\nCALORIE CONTEXT: ${calorieContext}` : '';
 
-    const systemPrompt = `You are Melius, a highly intelligent personal AI agent. You are like a brilliant friend who can help with anything.
+    // Run web search if needed
+    let searchContext = '';
+    if (message && needsWebSearch(message) && process.env.BRAVE_API_KEY) {
+      const results = await webSearch(message);
+      if (results.length > 0) {
+        searchContext = `\nWEB SEARCH RESULTS for "${message}":\n` +
+          results.map((r, i) => `${i + 1}. ${r.title}\n   ${r.description}\n   Source: ${r.url}`).join('\n\n');
+      }
+    }
+
+    const systemPrompt = `You are Melius, a highly intelligent personal AI agent. You are like a brilliant friend who happens to know everything — you can help with anything from daily planning to business advice, research, writing, health, fitness, studying, and more.
 
 ${contextSection}
 ${modeInstructions}
 ${calorieSection}
+${searchContext}
 
 YOUR PERSONALITY:
 - Calm, smart, and direct
-- Concise but thorough
-- Human and natural
+- Concise but thorough  
+- Human and natural — like a trusted advisor
 
-YOU CAN DO ANYTHING: answer questions, give recommendations, write emails, give advice, make plans, explain topics, analyze images and documents, estimate calories, have conversations.
+YOU ARE A REAL AGENT — not just a planner:
+- Help with business ideas, market research, validation, step by step strategies
+- Find information, give recommendations, compare options
+- Write emails, documents, plans, messages
+- Answer any question with depth and accuracy
+- When web search results are provided above, use them to give current accurate information and cite sources naturally
+- Plan sessions for ANY goal — business planning, creative projects, research, learning — not just daily schedules
 
-FORMATTING RULES — VERY IMPORTANT:
-- NEVER use markdown formatting — no **bold**, no *italic*, no # headers, no bullet points with *, no numbered lists
+FORMATTING RULES:
+- NEVER use markdown — no **bold**, no *italic*, no # headers, no bullet points with *, no numbered lists
 - Write in plain natural language only
 - Keep replies conversational and clean
 
-CALORIE DETECTION — VERY IMPORTANT:
-- If the user mentions ANY food, meal, drink, snack, eating, calories, macros, or nutrition — you MUST respond with type calorie
-- This includes casual mentions like "I had pizza" or "what about an apple" or "I ate breakfast"
-- ALWAYS include a calorieEntry object with name, calories, protein, carbs, fat, icon
-- Do NOT respond with type chat for food questions — always use type calorie
-- Estimates are fine — always add disclaimer
-- Example: {"type":"calorie","reply":"A medium apple has around 95 calories. Note these are estimates.","calorieEntry":{"name":"Medium apple","calories":95,"protein":0,"carbs":25,"fat":0,"icon":"🍎"}}
-AFTER PLAN BEHAVIOUR:
-- After generating a plan, stay in chat mode
-- User can ask to refine the plan — make it harder, adjust timing, change focus
-- Respond conversationally and update recommendations naturally
+CALORIE DETECTION — MANDATORY:
+- If the user mentions ANY food, meal, drink, snack, eating, calories, macros — respond with type calorie
+- ALWAYS include calorieEntry with name, calories, protein, carbs, fat, icon
+- Example: {"type":"calorie","reply":"A medium apple has around 95 calories.","calorieEntry":{"name":"Medium apple","calories":95,"protein":0,"carbs":25,"fat":0,"icon":"🍎"}}
 
-RESPONSE TYPES — always respond with valid JSON only:
-{"type":"chat","reply":"plain text"}
-{"type":"draft","reply":"Here is the draft:","draft":{"title":"what it is","content":"full content"}}
+RESPONSE TYPES — always valid JSON only, nothing outside:
+{"type":"chat","reply":"plain text response"}
+{"type":"draft","reply":"Here is the draft:","draft":{"title":"document title","content":"full content"}}
 {"type":"plan","reply":"Here is your plan.","plan":{"summary":"...","recommendations":[{"icon":"emoji","tip":"..."}],"schedule":[{"time":"HH:MM","icon":"emoji","title":"...","desc":"..."}]}}
-{"type":"question","reply":"your question"}
-{"type":"calorie","reply":"your analysis in plain text","calorieEntry":{"name":"food name","calories":0,"protein":0,"carbs":0,"fat":0,"icon":"emoji"}}
+{"type":"question","reply":"clarifying question"}
+{"type":"calorie","reply":"analysis in plain text","calorieEntry":{"name":"food name","calories":0,"protein":0,"carbs":0,"fat":0,"icon":"emoji"}}
 
-Use calorie type whenever food or calories are mentioned. Use plan only for full schedules. Always return valid JSON.`;
+Use plan type for schedules and structured day/session plans.
+Use calorie for any food mention.
+Use chat for everything else including business advice, research, recommendations, and general help.
+Always return valid JSON.`;
 
     const chatHistory = (history || [])
       .filter(m => m.role === 'user' || m.role === 'melius')
-      .slice(-10)
+      .slice(-12)
       .map(m => ({ role: m.role === 'melius' ? 'assistant' : 'user', content: m.text || '' }));
 
-    // Build user content
     let userContent;
     if (image?.base64) {
       userContent = [
@@ -111,7 +162,7 @@ Use calorie type whenever food or calories are mentioned. Use plan only for full
       if (file.type === 'text' && file.content) {
         fileText = `\n\nFILE CONTENTS (${file.name}):\n${file.content.slice(0, 6000)}`;
       } else if (file.type === 'pdf') {
-        fileText = `\n\n[PDF file attached: ${file.name}. Summarize or analyze based on context.]`;
+        fileText = `\n\n[PDF file attached: ${file.name}. Analyze based on context.]`;
       }
       userContent = (message || 'Please analyze this file') + fileText;
     } else {
