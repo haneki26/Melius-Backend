@@ -162,9 +162,11 @@ RESPONSE TYPES — always valid JSON only, nothing outside:
 {"type":"plan","reply":"Here is your plan.","plan":{"summary":"...","recommendations":[{"icon":"emoji","tip":"..."}],"schedule":[{"time":"HH:MM","icon":"emoji","title":"...","desc":"..."}]}}
 {"type":"question","reply":"clarifying question"}
 {"type":"calorie","reply":"analysis in plain text","calorieEntry":{"name":"food name","calories":0,"protein":0,"carbs":0,"fat":0,"icon":"emoji"}}
-{"type":"presentation","reply":"Generating your presentation...","file":{"title":"Title","subtitle":"Subtitle","slides":[{"title":"Slide title","points":["Point 1","Point 2","Point 3"]}]}}
-{"type":"pdf","reply":"Generating your document...","file":{"title":"Title","subtitle":"Subtitle","sections":[{"title":"Section","points":["Point 1","Point 2"]}]}}
+{"type":"presentation","reply":"Your presentation is ready — downloading now.","file":{"title":"Presentation Title","subtitle":"Optional subtitle","slides":[{"title":"Slide Title","points":["Clear concise point","Another point","Third point"]},{"title":"Slide 2","points":["Point 1","Point 2"]}]}}
+{"type":"pdf","reply":"Your document is ready — downloading now.","file":{"title":"Document Title","subtitle":"Optional subtitle","sections":[{"title":"Section Title","content":"Write FULL detailed paragraphs here with complete sentences and all relevant information. This is a document not a presentation — write like a proper report or article with depth and detail. Minimum 3-4 sentences per section."},{"title":"Section 2","content":"Another full paragraph with all the detail the user needs..."}]}}
 
+Use presentation type for slides/decks/PowerPoint — keep points SHORT (max 8 words each), 3-5 points per slide, 5-8 slides total.
+Use pdf type for documents/reports/PDFs — write FULL paragraphs in the content field, not bullet points. Each section needs 3-5 sentences minimum. Think like writing a proper document, not a presentation.
 Use presentation type when user asks for a presentation, slides, deck, or PowerPoint.
 Use pdf type when user asks for a PDF, document, or report to download.
 Use plan type for schedules and structured day/session plans.
