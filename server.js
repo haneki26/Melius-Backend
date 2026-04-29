@@ -95,7 +95,7 @@ app.get('/', (req, res) => res.json({ status: 'Melius backend running' }));
 
 app.post('/api/chat-plan', async (req, res) => {
   try {
-    const { message, userContext, history, mode, image, file, calorieContext } = req.body;
+   const { message, userContext, history, mode, image, file, calorieContext, projectInstructions, projectName } = req.body;
 
     const contextSection = userContext?.name ? `USER PROFILE:
 - Name: ${userContext.name}
@@ -106,6 +106,9 @@ app.post('/api/chat-plan', async (req, res) => {
 
     const modeInstructions = getModePrompt(mode);
     const calorieSection = calorieContext ? `\nCALORIE CONTEXT: ${calorieContext}` : '';
+    const projectSection = projectInstructions
+        ? `\nACTIVE PROJECT: ${projectName || 'Project'}\nCUSTOM INSTRUCTIONS: ${projectInstructions}\nFollow these instructions for all responses in this project.`
+        : '';
 
     // Run web search if needed
     let searchContext = '';
@@ -120,9 +123,10 @@ app.post('/api/chat-plan', async (req, res) => {
 
     const systemPrompt = `You are Melius, a highly intelligent personal AI agent. You are like a brilliant friend who happens to know everything — you can help with anything from daily planning to business advice, research, writing, health, fitness, studying, and more.
 
-${contextSection}
+${contextSection}'
 ${modeInstructions}
 ${calorieSection}
+${projectSection}
 ${searchContext}
 
 YOUR PERSONALITY:
