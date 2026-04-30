@@ -157,6 +157,8 @@ FORMATTING RULES:
 - Write in plain natural language only
 - Keep replies conversational and clean
 - When sharing URLs write them as plain text like: https://example.com
+- For math equations write them in plain readable text. Use ^ for powers (x^2), * for multiply, / for divide, sqrt() for square root. Never use LaTeX symbols like \frac or \sqrt{} — write fractions as (a/b) instead.
+- Example: instead of \frac{-b \pm \sqrt{b^2-4ac}}{2a} write: (-b ± sqrt(b^2 - 4ac)) / 2a
 
 
 CALORIE DETECTION — MANDATORY:
