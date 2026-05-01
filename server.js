@@ -271,7 +271,7 @@ app.post('/api/generate-image', async (req, res) => {
       prompt: prompt,
       n: 1,
       size: '1024x1024',
-      quality: 'standard',
+      quality: 'hd',
     });
  
     const imageUrl = response.data[0].url;
