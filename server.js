@@ -290,5 +290,35 @@ app.post('/api/generate-image', async (req, res) => {
   }
 });
 
+app.post('/api/transcribe', async (req, res) => {
+  try {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', async () => {
+      try {
+        const buffer = Buffer.concat(chunks);
+        const contentType = req.headers['content-type'] || '';
+        
+        const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': contentType,
+          },
+          body: buffer,
+        });
+        const data = await response.json();
+        res.json(data);
+      } catch (err) {
+        console.error('Transcribe inner error:', err.message);
+        res.status(500).json({ error: 'Transcription failed' });
+      }
+    });
+  } catch (err) {
+    console.error('Transcribe error:', err.message);
+    res.status(500).json({ error: 'Transcription failed' });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Melius backend running on port ${PORT}`));
